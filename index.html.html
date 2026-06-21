@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>노부장의 심기 경호</title>
+  <style>
+    /* ── 기본값 ── */
+    :root {
+      --primary:  #1e293b;
+      --danger:   #dc2626;
+      --success:  #16a34a;
+      --hint-bg:  #fef3c7;
+      --hint-fg:  #d97706;
+      --text:     #0f172a;
+      --muted:    #64748b;
+      --bg:       #f1f5f9;
+      --border:   #e2e8f0;
+      --radius:   12px;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* ── 앱 컨테이너 ── */
+    .app {
+      position: relative;
+      width: 100%;
+      max-width: 430px;
+      height: 100%;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 24px rgba(0,0,0,0.4);
+    }
+
+    /* ── 화면 전환 ── */
+    .screen {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .screen.active { display: flex; }
+
+    /* ── 공통 버튼 ── */
+    .btn {
+      width: 100%;
+      padding: 1rem;
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      background: var(--primary);
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .btn:active { filter: brightness(0.85); transform: scale(0.97); }
+    .btn-danger  { background: var(--danger); }
+    .btn-success { background: var(--success); }
+
+    /* ════════════════════════════
+       시작 / 성공 / 실패 화면
+    ════════════════════════════ */
+    .result-screen {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 2rem 1.5rem;
+      gap: 0;
+    }
+    .result-screen .emoji { font-size: 4rem; margin-bottom: 0.75rem; }
+    .result-screen h1 {
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--text);
+      margin: 0 0 0.75rem;
+    }
+    .result-screen .desc {
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: #475569;
+      margin: 0 0 2rem;
+    }
+    #start-screen .desc b,
+    #success-screen .desc b { color: var(--text); }
+    #fail-screen h1   { color: var(--danger); }
+    #success-screen h1 { color: var(--success); }
+
+    /* ════════════════════════════
+       게임 화면
+    ════════════════════════════ */
+    #game-screen { padding: 0.75rem 0.75rem 0.6rem; justify-content: space-between; }
+
+    /* 상단 바 */
+    .app-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 0.4rem;
+    }
+    .badge {
+      padding: 0.4rem 0.7rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .badge-hint {
+      background: var(--hint-bg);
+      color: var(--hint-fg);
+      border-color: #fde68a;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .badge-hint:active { background: #fde68a; }
+    .badge-hint:disabled,
+    .badge-hint.disabled {
+      background: #e2e8f0 !important;
+      color: #94a3b8 !important;
+      border-color: #cbd5e1 !important;
+      cursor: not-allowed;
+    }
+    .timer-text {
+      margin-left: auto;
+      color: var(--danger);
+      font-size: 1rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    /* 타이머 바 */
+    .timer-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: #e2e8f0;
+      overflow: hidden;
+      margin-bottom: 0.6rem;
+    }
+    #timer-bar {
+      height: 100%;
+      width: 100%;
+      border-radius: 4px;
+      background: var(--danger);
+      transition: width 0.1s linear, background 0.3s;
+    }
+
+    /* 부장 상태 */
+    .bujang-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .bujang-emoji { font-size: 3rem; line-height: 1; margin-bottom: 0.2rem; }
+    .bujang-status {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--danger);
+      background: #fee2e2;
+      padding: 0.2rem 0.7rem;
+      border-radius: 20px;
+    }
+
+    /* 채팅 로그 */
+    .log-box {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid #cbd5e1;
+      border-radius: var(--radius);
+      padding: 0.8rem;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-bottom: 0.6rem;
+    }
+    .log-item { display: flex; flex-direction: column; }
+    .sender-name {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+    .bubble {
+      display: inline-block;
+      max-width: 85%;
+      padding: 0.55rem 0.8rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    /* 부장 말풍선 */
+    .log-bujang { align-items: flex-start; }
+    .log-bujang .bubble {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-top-left-radius: 2px;
+    }
+
+    /* 유저 말풍선 */
+    .log-user { align-items: flex-end; }
+    .log-user .bubble {
+      background: #2563eb;
+      color: #fff;
+      border-top-right-radius: 2px;
+    }
+
+    /* 힌트 말풍선 */
+    .log-hint { align-items: center; }
+    .log-hint .bubble {
+      max-width: 95%;
+      background: #fffbeb;
+      color: #b45309;
+      border: 1px dashed #f59e0b;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* 입력 영역 */
+    .input-area {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .input-area input[type="text"] {
+      flex: 1;
+      height: 46px;
+      padding: 0 1rem;
+      border: 2px solid #cbd5e1;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .input-area input[type="text"]:focus { border-color: var(--primary); }
+    .send-btn {
+      height: 46px;
+      padding: 0 1.2rem;
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #fff;
+      background: var(--primary);
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .send-btn:active { filter: brightness(0.85); transform: scale(0.96); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ① 시작 화면 -->
+  <div id="start-screen" class="screen result-screen active">
+    <div class="emoji">🧓🏻💼</div>
+    <h1>노부장의 심기 경호</h1>
+    <p class="desc">
+      오늘따라 극도로 예민한 대공분실 급 노부장님.<br>
+      속으로 바라는 <b>'그것'</b>을 눈치껏 알아내야 합니다.<br><br>
+      <b>스무고개 (20번의 기회)</b> &nbsp;|&nbsp; <b>질문당 20초 제한</b><br>
+      💡 <b>힌트 찬스 총 2회 제공!</b><br><br>
+      눈치 챙기세요. 까딱하면 바로 내일부터 실업자입니다.
+    </p>
+    <button class="btn" onclick="startGame()">부장님실 입장 (눈치 탑재)</button>
+  </div>
+
+  <!-- ② 게임 화면 -->
+  <div id="game-screen" class="screen">
+    <!-- 상단 바 -->
+    <div class="app-bar">
+      <div class="badge">남은 고개: <span id="chance-count">20</span>/20</div>
+      <button id="hint-btn" class="badge badge-hint" onclick="useHint()">
+        💡 힌트 (<span id="hint-count">2</span>)
+      </button>
+      <div id="timer-text" class="timer-text">30.0초</div>
+    </div>
+
+    <!-- 타이머 바 -->
+    <div class="timer-track">
+      <div id="timer-bar"></div>
+    </div>
+
+    <!-- 부장 이모지 & 상태 -->
+    <div class="bujang-box">
+      <div class="bujang-emoji" id="bujang-emoji">👹</div>
+      <div class="bujang-status" id="bujang-status">혈압 지수: 99% (폭발 직전)</div>
+    </div>
+
+    <!-- 채팅 로그 -->
+    <div class="log-box" id="log-box"></div>
+
+    <!-- 입력 -->
+    <div class="input-area">
+      <input type="text" id="user-input" placeholder="질문을 입력하세요..." autocomplete="off">
+      <button class="send-btn" onclick="submitGuess()">제출</button>
+    </div>
+  </div>
+
+  <!-- ③ 실패 화면 -->
+  <div id="fail-screen" class="screen result-screen">
+    <div class="emoji">✍️📄</div>
+    <h1>[권고사직] 시말서 엔딩</h1>
+    <p class="desc" id="fail-reason"></p>
+    <button class="btn btn-danger" onclick="resetGame()">짐 싸서 다시 도전하기</button>
+  </div>
+
+  <!-- ④ 성공 화면 -->
+  <div id="success-screen" class="screen result-screen">
+    <div class="emoji">🏃‍♂️✨</div>
+    <h1>[超승진] 황금칼퇴 엔딩</h1>
+    <p class="desc">
+      "역시 자네야! 내 마음을 완벽하게 읽었구만!"<br>
+      노부장님의 특별 총애를 얻어 당당하게 칼퇴근합니다!
+    </p>
+    <button class="btn btn-success" onclick="resetGame()">다음 날 출근하기</button>
+  </div>
+
+</div>
+<script>
+  /* ─────────────────────────────────
+     데이터
+  ───────────────────────────────── */
+  // size: 'small' | 'medium' | 'large' — 크기 질문에 응답할 때 사용
+  const WORD_POOL = [
+    {
+      word: "법인카드", type: "물건", size: "small",
+      isPlace: false, isObject: true,
+      specificHint: "회식할 때나 밥 살 때 긁는 마법의 플라스틱 카드지!",
+      sizeHint: "지갑 속에 쏙 들어가는 손바닥만 한 크기일세."
+    },
+    {
+      word: "결재판", type: "물건", size: "medium",
+      isPlace: false, isObject: true,
+      specificHint: "내가 도장 쾅쾅 찍을 때 항상 옆구리에 끼고 다니는 그거 말일세.",
+      sizeHint: "서류철 한 장 정도 들어가는, A4 용지만 한 크기지."
+    },
+    {
+      word: "기획서", type: "문서", size: "small",
+      isPlace: false, isObject: true,
+      specificHint: "아까 결재 도장 받으러 가져오라고 한 서류 뭉치일세. 회의할 때 꼭 필요하지!",
+      sizeHint: "종이 몇 장 묶음 정도라 부피는 크지 않다네."
+    },
+    {
+      word: "회의실", type: "장소", size: "large",
+      isPlace: true, isObject: false,
+      specificHint: "다 같이 모여서 프로젝터 켜고 보고하는 그 공간 말일세.",
+      sizeHint: "사람 여럿이 들어가는 방 한 칸 크기지."
+    },
+    {
+      word: "탕비실", type: "장소", size: "large",
+      isPlace: true, isObject: false,
+      specificHint: "믹스커피랑 정수기가 있는 사내 휴식 스팟이지.",
+      sizeHint: "작은 방 하나 정도 크기일세."
+    },
+    {
+      word: "프린터", type: "물건", size: "large",
+      isPlace: false, isObject: true,
+      specificHint: "맨날 종이 걸려서 사람 속 터지게 만드는 그 기계라네.",
+      sizeHint: "복합기라 책상 하나는 너끈히 차지하는 덩치라네."
+    },
+    {
+      word: "사원증", type: "물건", size: "small",
+      isPlace: false, isObject: true,
+      specificHint: "출입할 때마다 목에 걸고 찍는 그 카드 말일세.",
+      sizeHint: "손바닥보다 작은, 목걸이로 거는 크기지."
+    },
+    {
+      word: "엘리베이터", type: "장소", size: "large",
+      isPlace: true, isObject: false,
+      specificHint: "출근할 때마다 다닥다닥 붙어서 타는 그 좁은 상자 말일세.",
+      sizeHint: "사람 여럿이 한꺼번에 타는 큰 공간이지."
+    },
+    {
+      word: "모니터", type: "물건", size: "medium",
+      isPlace: false, isObject: true,
+      specificHint: "내가 하루 종일 눈 빠지게 들여다보는 그 화면 말일세.",
+      sizeHint: "책상 위에 세워두는, 양손으로 들 만한 크기지."
+    },
+    {
+      word: "출입문", type: "장소", size: "large",
+      isPlace: true, isObject: false,
+      specificHint: "지각하면 식은땀 흘리며 통과하는 그 정문 말일세.",
+      sizeHint: "사람이 드나드는 큼지막한 크기지."
+    }
+  ];
+
+  /* ─────────────────────────────────
+     상태
+  ───────────────────────────────── */
+  const TOTAL_CHANCES  = 20;
+  const TOTAL_SECONDS  = 20;
+  const TOTAL_HINTS    = 2;
+
+  // 20초를 5초씩 4단계로 나눠 긴장감을 단계적으로 표현
+  const TIMER_STAGES = [
+    { min: 15, emoji: '🙂', text: '혈압 지수: 안정 (여유 만만)',     bg: '#dcfce7', color: '#16a34a' },
+    { min: 10, emoji: '😐', text: '혈압 지수: 상승 중 (눈치 보는 중)', bg: '#fef9c3', color: '#ca8a04' },
+    { min: 5,  emoji: '😠', text: '혈압 지수: 위험 (한계 도달 직전)', bg: '#fed7aa', color: '#ea580c' },
+    { min: 0,  emoji: '🌋', text: '혈압 지수: 폭발 직전 (당장 대답해!)', bg: '#fee2e2', color: '#dc2626' }
+  ];
+  let target    = null;
+  let chances   = TOTAL_CHANCES;
+  let hints     = TOTAL_HINTS;
+  let timeLeft  = TOTAL_SECONDS;
+  let timerId   = null;
+
+  /* ─────────────────────────────────
+     DOM 캐시
+  ───────────────────────────────── */
+  const $ = id => document.getElementById(id);
+
+  const elInput       = $('user-input');
+  const elLog         = $('log-box');
+  const elChance      = $('chance-count');
+  const elHintCount   = $('hint-count');
+  const elHintBtn     = $('hint-btn');
+  const elTimerText   = $('timer-text');
+  const elTimerBar    = $('timer-bar');
+  const elBujangEmoji = $('bujang-emoji');
+  const elBujangStat  = $('bujang-status');
+
+  /* ─────────────────────────────────
+     초기화
+  ───────────────────────────────── */
+  window.addEventListener('DOMContentLoaded', () => {
+    elInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); submitGuess(); }
+    });
+  });
+
+  /* ─────────────────────────────────
+     화면 전환
+  ───────────────────────────────── */
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+
+  /* ─────────────────────────────────
+     게임 시작
+  ───────────────────────────────── */
+  function startGame() {
+    target  = WORD_POOL[Math.floor(Math.random() * WORD_POOL.length)];
+    chances = TOTAL_CHANCES;
+    hints   = TOTAL_HINTS;
+
+    elChance.textContent    = chances;
+    elHintCount.textContent = hints;
+    elHintBtn.disabled      = false;
+    elHintBtn.classList.remove('disabled');
+    elLog.innerHTML         = '';
+
+    setBujang('🙂', '혈압 지수: 안정 (여유 만만)', '#dcfce7', '#16a34a');
+    appendBoss("이봐, 자네. 내가 지금 머릿속으로 원하고 있는 게 하나 있는데 뭔지 알겠나? 딱 20번 안에 알아내봐. 정 답답하면 상단의 힌트 버튼을 눌러보던가! 딱 2번만 줄 테니.");
+
+    showScreen('game-screen');
+    elInput.value = '';
+    setTimeout(() => elInput.focus(), 150);
+    runTimer();
+  }
+
+  /* ─────────────────────────────────
+     타이머
+  ───────────────────────────────── */
+  function runTimer() {
+    clearInterval(timerId);
+    timeLeft = TOTAL_SECONDS;
+    renderTimer();
+    timerId = setInterval(() => {
+      timeLeft = Math.max(0, +(timeLeft - 0.1).toFixed(1));
+      renderTimer();
+      if (timeLeft <= 0) {
+        clearInterval(timerId);
+        gameOver(`"내 질문에 대답하는 데 20초나 걸려?! 자네 정신머리가 나갔구만!"<br>결국 노부장님의 혈압이 폭발하며 권고사직 처리가 완료되었습니다.<br>정답은 [ <b>${target.word}</b> ] 이었습니다.`);
+      }
+    }, 100);
+  }
+
+  function renderTimer() {
+    elTimerText.textContent = timeLeft.toFixed(1) + '초';
+    const pct = (timeLeft / TOTAL_SECONDS) * 100;
+    elTimerBar.style.width = pct + '%';
+    elTimerBar.style.background =
+      pct > 50 ? '#16a34a' : pct > 25 ? '#f59e0b' : '#dc2626'; // 시간 줄수록 빨강
+
+    // 5초 간격 단계별로 부장 이모지 · 상태 문구 갱신 (기회 소진 임박 상태는 덮어쓰지 않음)
+    if (chances > 5) {
+      const stage = TIMER_STAGES.find(s => timeLeft >= s.min) || TIMER_STAGES[TIMER_STAGES.length - 1];
+      setBujang(stage.emoji, stage.text, stage.bg, stage.color);
+    }
+  }
+
+  /* ─────────────────────────────────
+     힌트
+  ───────────────────────────────── */
+  function useHint() {
+    if (hints <= 0) return;
+
+    hints--;
+    elHintCount.textContent = hints;
+
+    if (hints === 0) {
+      elHintBtn.disabled = true;
+      elHintBtn.classList.add('disabled');
+    }
+
+    // 첫 힌트: 카테고리 + 글자수 / 두 번째 힌트: 결정적 힌트
+    const text = hints === 1
+      ? `💡 [첫 번째 힌트]: 카테고리는 <b>'${target.type}'</b>이고, 총 <b>${target.word.length}글자</b>라네!`
+      : `💡 [마지막 힌트]: <i>"${target.specificHint}"</i>`;
+
+    appendHint(text);
+  }
+
+  /* ─────────────────────────────────
+     제출
+  ───────────────────────────────── */
+  function submitGuess() {
+    const guess = elInput.value.trim();
+    if (!guess) { alert('질문이나 단어를 입력창에 적고 제출해 주게!'); return; }
+    elInput.value = '';
+
+    appendUser(guess);
+
+    // 정답 체크
+    if (guess === target.word) {
+      clearInterval(timerId);
+      setTimeout(() => showScreen('success-screen'), 300);
+      return;
+    }
+
+    // 기회 차감
+    chances--;
+    elChance.textContent = chances;
+
+    if (chances <= 0) {
+      gameOver(`"자네 눈치는 국 끓여 먹었나? 20번 기회를 줘도 몰라!"<br>노부장님이 결재판을 집어 던지며 시말서 작성을 명령했습니다.<br>정답은 [ <b>${target.word}</b> ] 이었습니다.`);
+      return;
+    }
+
+    // 키워드 기반 부장 응답
+    const { reply, correct } = getReply(guess);
+
+    // 혈압 상태 업데이트
+    if (chances <= 5) {
+      setBujang('🌋', '혈압 지수: 150% (시말서 인쇄 중)', '#fca5a5', '#dc2626');
+    } else if (correct) {
+      setBujang('😏', '혈압 지수: 50% (정답에 가까워짐)', '#bbf7d0', '#16a34a');
+    } else {
+      setBujang('👹', `혈압 지수: ${99 - (TOTAL_CHANCES - chances)}% (대치 중)`, '#fee2e2', '#dc2626');
+    }
+
+    setTimeout(() => {
+      appendBoss(reply);
+      runTimer();
+      elInput.focus();
+    }, 300);
+  }
+
+  /* ─────────────────────────────────
+     키워드 → 응답 매핑
+  ───────────────────────────────── */
+  function getReply(guess) {
+    const has = (...kw) => kw.some(k => guess.includes(k));
+
+    if (has('장소', '어디', '위치', '공간')) {
+      return target.isPlace
+        ? { reply: "그래, 맞아! 회사 안의 특정 '장소'가 맞네!", correct: true }
+        : { reply: "장소는 전혀 아닐세! 엉뚱한 데서 헤매지 말게!", correct: false };
+    }
+    if (has('물건', '사물', '장비', '도구')) {
+      return target.isObject
+        ? { reply: "그렇지! 눈에 보이고 손으로 만질 수 있는 '물건' 종류가 맞다네!", correct: true }
+        : { reply: "물건이 아니야! 형태가 없는 장소 같은 거라니까!", correct: false };
+    }
+    if (has('글자', '길이', '글자수')) {
+      return { reply: `내가 고른 단어는 딱 <b>${target.word.length}글자</b>라네.`, correct: true };
+    }
+    if (has('크기', '사이즈', '커', '작', '크다', '작다', '얼마나 큰', '얼마나 작')) {
+      return { reply: `크기를 묻다니 제법인데? ${target.sizeHint}`, correct: true };
+    }
+    if (guess.includes(target.word.substring(0, 2)) || guess.includes(target.type)) {
+      return { reply: `오! 거의 다 왔어! 바로 대답해주지. ${target.specificHint}`, correct: true };
+    }
+    return { reply: '"뭔 뚱딴지같은 소릴 하는 거야?! 나랑 지금 장난해? 내 머릿속 의도랑 완전히 엇나갔네!"', correct: false };
+  }
+
+  /* ─────────────────────────────────
+     로그 추가 헬퍼
+  ───────────────────────────────── */
+  function appendLog(cls, senderLabel, html) {
+    const item = document.createElement('div');
+    item.className = `log-item ${cls}`;
+    item.innerHTML = senderLabel
+      ? `<span class="sender-name">${senderLabel}</span><div class="bubble">${html}</div>`
+      : `<div class="bubble">${html}</div>`;
+    elLog.appendChild(item);
+    elLog.scrollTop = elLog.scrollHeight;
+  }
+  const appendBoss = html => appendLog('log-bujang', '노부장', html);
+  const appendUser = html => appendLog('log-user', '나 (사원)', html);
+  const appendHint = html => appendLog('log-hint', '', html);
+
+  /* ─────────────────────────────────
+     부장 이모지 / 상태 변경
+  ───────────────────────────────── */
+  function setBujang(emoji, status, bg, color) {
+    elBujangEmoji.textContent = emoji;
+    elBujangStat.textContent  = status;
+    elBujangStat.style.background = bg;
+    elBujangStat.style.color      = color;
+  }
+
+  /* ─────────────────────────────────
+     게임 종료 / 리셋
+  ───────────────────────────────── */
+  function gameOver(reason) {
+    clearInterval(timerId);
+    $('fail-reason').innerHTML = reason;
+    showScreen('fail-screen');
+  }
+
+  function resetGame() {
+    clearInterval(timerId);
+    showScreen('start-screen');
+  }
+</script>
+</body>
+</html>
+
